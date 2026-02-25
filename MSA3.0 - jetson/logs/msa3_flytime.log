@@ -1,0 +1,4 @@
+2026-02-25 14:00:45,643 INFO msa3_flytime.scheduler - Init daily rows on startup inserted=0
+2026-02-25 14:00:45,667 INFO __main__ - HTTP serving on http://0.0.0.0:8000
+2026-02-25 14:10:23,391 INFO msa3_flytime.scheduler - Init daily rows on startup inserted=0
+2026-02-25 14:10:23,399 INFO __main__ - HTTP serving on http://0.0.0.0:8000

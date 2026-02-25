@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MSA3 無人機飛行時數</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,"Microsoft JhengHei";margin:24px;color:#111}
+    .row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+    label{display:flex;flex-direction:column;gap:6px;font-size:14px}
+    input{padding:8px 10px;font-size:14px}
+    button{padding:9px 12px;font-size:14px;cursor:pointer}
+    table{border-collapse:collapse;width:100%;margin-top:16px}
+    th,td{border-bottom:1px solid #e5e5e5;padding:10px 8px;text-align:left;font-size:14px}
+    tr.clickable:hover{background:#fafafa}
+    .muted{color:#666;font-size:13px}
+    .split{display:grid;grid-template-columns:1.2fr 0.8fr;gap:18px;align-items:start}
+    @media (max-width: 980px){.split{grid-template-columns:1fr}}
+    .card{border:1px solid #e5e5e5;border-radius:10px;padding:14px}
+    .title{font-size:16px;font-weight:600;margin:0 0 10px}
+    .error{color:#b00020}
+  </style>
+</head>
+<body>
+  <h2 style="margin:0 0 8px">MSA3 無人機飛行時數</h2>
+  <div class="muted">選擇日期區間後查詢；點選左側表格任一無人機可看每日明細。</div>
+
+  <div class="row" style="margin-top:14px">
+    <label>開始日期
+      <input id="start" type="date" />
+    </label>
+    <label>結束日期
+      <input id="end" type="date" />
+    </label>
+    <button id="btn">查詢</button>
+    <div id="status" class="muted"></div>
+  </div>
+
+  <div class="split" style="margin-top:14px">
+    <div class="card">
+      <div class="title">區間彙總</div>
+      <div id="err" class="error" style="display:none"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Drone SN</th>
+            <th>型號</th>
+            <th>版本</th>
+            <th>區間飛行時數 (HH:MM)</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="title">每日明細</div>
+      <div id="detailTitle" class="muted">尚未選擇無人機</div>
+      <table>
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>飛行時數 (HH:MM)</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  function isoToday(){
+    const d = new Date();
+    const pad = (n)=> String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+
+  function setStatus(t){
+    document.getElementById('status').textContent = t || '';
+  }
+
+  function showError(msg){
+    const el = document.getElementById('err');
+    if(!msg){ el.style.display='none'; el.textContent=''; return; }
+    el.style.display='block';
+    el.textContent = msg;
+  }
+
+  async function fetchJson(url){
+    const r = await fetch(url, {cache:'no-store'});
+    const j = await r.json().catch(()=> ({}));
+    if(!r.ok){
+      throw new Error(j.error || `HTTP ${r.status}`);
+    }
+    return j;
+  }
+
+  async function loadSummary(){
+    const start = document.getElementById('start').value;
+    const end = document.getElementById('end').value;
+    if(!start || !end) throw new Error('請選擇開始/結束日期');
+
+    setStatus('查詢中...');
+    showError('');
+
+    const rows = await fetchJson(`/api/summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    const tb = document.getElementById('tbody');
+    tb.innerHTML = '';
+
+    for(const r of rows){
+      const tr = document.createElement('tr');
+      tr.className = 'clickable';
+      tr.innerHTML = `
+        <td>${r.drone_sn}</td>
+        <td>${r.drone_type ?? ''}</td>
+        <td>${r.drone_version ?? ''}</td>
+        <td>${r.total_hhmm}</td>
+      `;
+      tr.addEventListener('click', ()=> loadDetail(r.drone_sn, start, end));
+      tb.appendChild(tr);
+    }
+
+    setStatus(`完成，共 ${rows.length} 台`);
+  }
+
+  async function loadDetail(droneSn, start, end){
+    document.getElementById('detailTitle').textContent = `Drone SN: ${droneSn}`;
+    const data = await fetchJson(`/api/drone/${encodeURIComponent(droneSn)}/range?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+    const body = document.getElementById('detailBody');
+    body.innerHTML = '';
+    for(const d of data.days){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${d.fly_date}</td>
+        <td>${d.hhmm}</td>
+      `;
+      body.appendChild(tr);
+    }
+  }
+
+  document.getElementById('btn').addEventListener('click', async ()=>{
+    try{ await loadSummary(); }
+    catch(e){ showError(e.message || String(e)); setStatus(''); }
+  });
+
+  // default: today
+  const t = isoToday();
+  document.getElementById('start').value = t;
+  document.getElementById('end').value = t;
+</script>
+</body>
+</html>

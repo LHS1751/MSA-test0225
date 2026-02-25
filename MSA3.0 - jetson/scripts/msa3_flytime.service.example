@@ -1,0 +1,26 @@
+[Unit]
+Description=MSA3 Flytime Service (MQTT + SQLite + HTTP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 1) Put the project at /opt/msa3_flytime (recommended), OR edit these paths.
+WorkingDirectory=/opt/msa3_flytime
+
+# Run the launcher script which loads config/app.env (and strips CRLF if copied from Windows)
+ExecStart=/opt/msa3_flytime/scripts/run_service.sh
+
+# Optional: run as a non-root user (ensure it can write to SQLITE_PATH and logs/)
+# User=jetson
+# Group=jetson
+
+Restart=always
+RestartSec=2
+
+# If you want logs in journalctl only, keep StandardOutput/Error as journal.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
